@@ -528,6 +528,7 @@ elif menu == "⏱️ Registrar Repaso":
                                 f"Selección para pregunta {i+1}:",
                                 options=list(range(len(p["opciones"]))),
                                 format_func=lambda idx, p_item=p: p_item["opciones"][idx],
+                                index=None,
                                 key=f"preg_opt_{i}",
                                 label_visibility="collapsed"
                             )
