@@ -1,0 +1,7 @@
+{
+  "typeCheckingMode": "off",
+  "exclude": [
+    "**/_pyrefly_virtual_memory/**",
+    "**/venv/**"
+  ]
+}
