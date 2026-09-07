@@ -16,7 +16,7 @@ from init_db import SessionLocal, engine
 from algorithm import obtener_temas_prioritarios
 # pyrefly: ignore [missing-import]
 import quiz_generator
-
+from datetime import datetime, timezone
 # Directorio para guardar archivos PDF
 UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
@@ -263,7 +263,7 @@ elif menu == "📚 Asignaturas":
                         nueva_asig = models.Asignatura(
                             nombre=nombre_asig.strip(),
                             color=color_asig,
-                            fecha_creacion=datetime.utcnow()
+                            fecha_creacion=datetime.now(timezone.utc)
                         )
                         db.add(nueva_asig)
                         db.commit()
