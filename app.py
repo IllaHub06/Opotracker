@@ -619,22 +619,25 @@ elif menu == "⏱️ Registrar Repaso":
                         if st.button("🚀 Iniciar Test con Cronómetro", type="primary", use_container_width=True):
                             with st.spinner("🤖 Analizando tus apuntes con Gemini y generando preguntas..."):
                                 gemini_k = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
-                                preguntas = quiz_generator.generar_preguntas_test(
-                                    texto=getattr(tema_obj, 'contenido_texto', None),
-                                    tema_titulo=tema_obj.titulo,
-                                    asignatura_nombre=tema_obj.asignatura.nombre if tema_obj.asignatura else "",
-                                    num_preguntas=num_preguntas,
-                                    api_key=gemini_k
-                                )
-                                st.session_state["test_activo"] = True
-                                st.session_state["test_tema_id"] = tema_obj.id
-                                st.session_state["test_tema_titulo"] = tema_obj.titulo
-                                st.session_state["test_asig_nombre"] = tema_obj.asignatura.nombre if tema_obj.asignatura else "General"
-                                st.session_state["test_inicio_time"] = time.time()
-                                st.session_state["test_preguntas"] = preguntas
-                                st.session_state["test_finalizado"] = False
-                                st.session_state["test_resultado"] = None
-                                st.rerun()
+                                try:
+                                    preguntas = quiz_generator.generar_preguntas_test(
+                                        texto=getattr(tema_obj, 'contenido_texto', None),
+                                        tema_titulo=tema_obj.titulo,
+                                        asignatura_nombre=tema_obj.asignatura.nombre if tema_obj.asignatura else "",
+                                        num_preguntas=num_preguntas,
+                                        api_key=gemini_k
+                                    )
+                                    st.session_state["test_activo"] = True
+                                    st.session_state["test_tema_id"] = tema_obj.id
+                                    st.session_state["test_tema_titulo"] = tema_obj.titulo
+                                    st.session_state["test_asig_nombre"] = tema_obj.asignatura.nombre if tema_obj.asignatura else "General"
+                                    st.session_state["test_inicio_time"] = time.time()
+                                    st.session_state["test_preguntas"] = preguntas
+                                    st.session_state["test_finalizado"] = False
+                                    st.session_state["test_resultado"] = None
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"❌ Error al generar el test con IA: {e}")
 
             # ----------------------------------------------------
             # PESTAÑA 2: REGISTRO MANUAL DE SESIÓN
