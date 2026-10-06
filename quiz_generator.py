@@ -3,6 +3,7 @@ import os
 import json
 import random
 import io
+import time
 from typing import List, Dict, Any, Optional, TypedDict
 import pypdf
 from dotenv import load_dotenv
@@ -172,25 +173,48 @@ TEMARIO:
 ---
 """
 
-    try:
-        response = client.models.generate_content(
-            model="gemini-3.8-flash",
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                system_instruction=system_instruction,
-                response_mime_type="application/json",
-                response_schema=ListaPreguntasSchema,
-                temperature=0.2,
-            ),
-        )
-    except Exception as e:
-        print(f"[ERROR GEMINI] Error al llamar a gemini-3.8-flash: {e}")
-        err_str = str(e).upper()
-        if any(k in err_str for k in ["API_KEY_INVALID", "API KEY NOT VALID", "UNAUTHENTICATED", "PERMISSION_DENIED", "401", "403"]):
-            raise ValueError(f"[ERROR GEMINI] Clave de API no válida o denegada: {e}") from e
-        raise RuntimeError(f"Error al generar test con Gemini (gemini-3.8-flash): {e}") from e
+    # Configuración de reintentos para soportar picos de demanda (error 503)
+    max_reintentos = 4
+    response = None
 
-    texto_respuesta = response.text.strip() if response.text else ""
+    for intento in range(max_reintentos):
+        try:
+            response = client.models.generate_content(
+                model="gemini-3.8-flash",
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    system_instruction=system_instruction,
+                    response_mime_type="application/json",
+                    response_schema=ListaPreguntasSchema,
+                    temperature=0.2,
+                ),
+            )
+            # Si se ejecutó correctamente y hay respuesta, salimos del bucle
+            if response and response.text:
+                break
+        except Exception as e:
+            err_str = str(e).upper()
+            # Si el servidor responde con 503, UNAVAILABLE o HIGH DEMAND, reintentamos
+            if any(k in err_str for k in ["503", "UNAVAILABLE", "HIGH DEMAND"]):
+                if intento < max_reintentos - 1:
+                    tiempo_espera = (intento + 1) * 4  # Tiempos de espera: 4s, 8s, 12s...
+                    print(f"[AVISO] Servidor saturado (503). Reintentando en {tiempo_espera}s... (Intento {intento + 1}/{max_reintentos})")
+                    time.sleep(tiempo_espera)
+                    continue  # Pasa al siguiente intento del bucle sin lanzar excepción
+            
+            # Si es un error de autenticación o la API key es inválida, se detiene de inmediato
+            if any(k in err_str for k in ["API_KEY_INVALID", "API KEY NOT VALID", "UNAUTHENTICATED", "PERMISSION_DENIED", "401", "403"]):
+                raise ValueError(f"[ERROR GEMINI] Clave de API no válida o denegada: {e}") from e
+            
+            # Si no es un 503 y es el último intento, lanza la excepción
+            if intento == max_reintentos - 1:
+                raise RuntimeError(f"Error al generar test con Gemini tras {max_reintentos} intentos: {e}") from e
+
+    # Validación final de la respuesta recibida
+    if response is None or not response.text:
+        raise RuntimeError("No se obtuvo respuesta de Gemini tras varios reintentos por saturación del servidor.")
+
+    texto_respuesta = response.text.strip()
     if not texto_respuesta:
         raise ValueError("El modelo gemini-3.8-flash devolvió una respuesta vacía.")
 
@@ -267,6 +291,11 @@ TEMARIO:
         if corr_idx < 0 or corr_idx >= len(ops):
             corr_idx = 0
 
+        # Aleatorizar el orden de las opciones y recalcular el índice de la respuesta correcta
+        opcion_correcta_texto = ops[corr_idx]
+        random.shuffle(ops)
+        nuevo_corr_idx = ops.index(opcion_correcta_texto)
+
         explicacion_raw = str(item.get("explicacion", "Pregunta generada por IA (Gemini) basada en los apuntes del PDF.")).strip()
         explicacion_txt = _limpiar_sin_suspensivos(explicacion_raw)
 
@@ -274,7 +303,7 @@ TEMARIO:
             "id": idx,
             "pregunta": preg,
             "opciones": ops,
-            "respuesta_correcta": int(corr_idx),
+            "respuesta_correcta": int(nuevo_corr_idx),
             "explicacion": f"💡 {explicacion_txt}" if not explicacion_txt.startswith("💡") else explicacion_txt
         })
 
